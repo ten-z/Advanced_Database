@@ -1,0 +1,46 @@
+Question 1. A Data Mart in the PostgreSQL
+1.
+psql -d swen432_assignment2_tengzhang -f BookOrdersDatabaseDump_23.sql
+
+2.
+CREATE TABLE time (TimeId SERIAL PRIMARY KEY, OrderDate DATE NOT NULL, DayOfWeek VARCHAR(10) NOT NULL, Month VARCHAR(10) NOT NULL,Year INT NOT NULL);
+
+INSERT INTO Time (OrderDate, DayOfWeek, Month, Year) SELECT DISTINCT OrderDate, TO_CHAR(OrderDate, 'Day') AS DayOfWeek, TO_CHAR(OrderDate, 'Month') AS Month, EXTRACT(YEAR FROM OrderDate) AS Year FROM Cust_Order ORDER BY OrderDate ASC;
+
+3.
+CREATE TABLE sales (customerid INT REFERENCES customer(customerid) CHECK (customerid > 0), timeid INT REFERENCES time(timeid) CHECK (timeid > 0), isbn INT REFERENCES book(isbn) CHECK (isbn > 0), Amnt DECIMAL(6, 2) NOT NULL CHECK (Amnt > 0), PRIMARY KEY (customerid, timeid, isbn));
+
+INSERT INTO Sales (CustomerId, TimeId, ISBN, Amnt) SELECT co.CustomerId, t.TimeId, b.ISBN, SUM(od.Quantity * b.Price) AS Amnt FROM Cust_Order co JOIN Order_Detail od ON co.OrderId = od.OrderId JOIN Book b ON od.ISBN = b.ISBN JOIN Time t ON t.OrderDate = co.OrderDate GROUP BY co.CustomerId, t.TimeId, b.ISBN;
+
+Question 3. An OLAP Query
+a)
+SELECT CustomerID, (f_name || ' ' || l_name) AS Names, l_name AS Surname, SUM(Amnt) AS Totals FROM Sales NATURAL JOIN Customer NATURAL JOIN Time WHERE year = 2023 GROUP BY CustomerID, Names, Surname ORDER BY Totals DESC LIMIT 6;
+
+Question 4. Queries Against Materialized Views
+a)
+1.
+EXPLAIN ANALYZE SELECT CustomerID, (f_name || ' ' || l_name) AS Names, l_name AS Surname, SUM(price*quantity) AS Totals FROM Customer NATURAL JOIN cust_order NATURAL JOIN order_detail NATURAL JOIN book WHERE EXTRACT(YEAR FROM OrderDate) = 2023 GROUP BY CustomerID, Names, Surname ORDER BY Totals DESC LIMIT 6;
+
+2.
+EXPLAIN ANALYZE SELECT CustomerID, (f_name || ' ' || l_name) AS Names, l_name AS Surname, SUM(Amnt) AS Totals FROM View1 WHERE Year = 2023 GROUP BY CustomerID, Names, Surname ORDER BY Totals DESC LIMIT 6;
+
+3.
+EXPLAIN ANALYZE SELECT CustomerID, (f_name || ' ' || l_name) AS Names, l_name AS Surname, SUM AS Totals FROM View2 WHERE Year = 2023 ORDER BY Totals DESC LIMIT 6;
+
+c)
+select c.customerid, c.f_name, c.l_name, sum(s.amnt) as tot_amnt from (select customerid, timeid, amnt from sales Where timeid >142 AND timeid<185 ) s NATURAL JOIN (select customerid, f_name, l_name from customer) c group by c.customerid, f_name, l_name order by tot_amnt desc limit 6;
+
+d)
+1.
+EXPLAIN ANALYZE SELECT c.Country, SUM(s.Amnt) AS Total FROM Customer c NATURAL JOIN Sales s GROUP BY c.Country ORDER BY Total DESC LIMIT 1;
+
+2.
+EXPLAIN ANALYZE SELECT c.Country, SUM(v.SUM) AS Total FROM View2 v NATURAL JOIN Customer c GROUP BY c.Country ORDER BY Total DESC LIMIT 1;
+
+3.
+EXPLAIN ANALYZE SELECT c.country, SUM(v.SUM) AS total FROM View3 v JOIN (SELECT DISTINCT country, district FROM Customer) c ON v.district = c.district GROUP BY c.country ORDER BY total DESC LIMIT 1;
+
+Question 5. Queries with WINDOW Function
+CREATE MATERIALIZED VIEW View4 AS SELECT City, Month, SUM(Amnt) AS Sum_Amunt, AVG(timeid) AS Avg_TimeId FROM Sales NATURAL JOIN Customer NATURAL JOIN Time Where Year = 2023 GROUP BY City, Month Order by City, Avg_TimeId;
+
+SELECT City, Month, sum_amunt AS Monthly_Amount, ROUND( SUM(sum_amunt) OVER w/12, 2) AS Yearly_Average_Amount FROM View4 WINDOW w AS (PARTITION BY City);

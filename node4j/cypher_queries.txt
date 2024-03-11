@@ -1,0 +1,79 @@
+Question 1
+
+(a)
+MATCH (m:Movie {title: "Inception"})<-[:DIRECTED]-(p:Person)
+WITH p
+MATCH (m:Movie)<-[:DIRECTED]-(p)
+WHERE NOT m.title='Inception'
+RETURN collect(m)
+
+(b)
+MATCH (m:Movie {title: "Inception"})<-[:DIRECTED]-(p:Person)
+WITH p
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(p)
+WITH a,m,p
+RETURN m.title AS title,collect(a.name) AS `List of actors`
+
+(c)
+MATCH (m:Movie)<-[:DIRECTED]-(p:Person)
+WHERE substring(p.name, 0, 1) >= 'M' AND substring(p.name, 0, 1) <= 'Y'
+RETURN p.name AS `Directors-Name`,COUNT(m) AS `Number of movies`
+
+(d)
+MATCH (m:Movie)<-[r:RATED]-(u:User)
+WHERE m.title IN ['Inception', 'The Matrix', '12 Angry Men', 'The Dark Knight Rises', 'Forrest Gump']
+RETURN m.title AS `movie`, AVG(r. rating) AS `rating`, COUNT(u) AS ` Number of voters`
+ORDER BY AVG(r. rating)
+
+(e)
+MATCH (aaron:User {username:'Aaron'}), (james:User {username:'James'})
+CREATE (aaron)-[f:FOLLOWS {year: 2023}]->(james)
+RETURN aaron,f,james
+
+(f) MATCH (ma:Movie {title:'The Dark Knight'}), (mb:Movie {title:'The Matrix'}), (mc:Movie {title:'3 Days to Kill'}), (md:Movie {title:'The Godfather'}),(me:Movie {title:'Inception'})
+CREATE (t:User{username:'Teng'})
+WITH ma, mb, mc, md, me, t
+CREATE (t)-[:RATED {rating: 4}]->(ma), (t)-[:RATED {rating: 5}]->(mb), (t)-[:RATED {rating: 4}]->(mc), (t)-[:RATED {rating: 5}]->(md), (t)-[:RATED {rating: 4}]->(me)
+WITH ma, mb, mc, md, me, t
+MATCH (aaron:User {username:'Aaron'})
+CREATE (aaron)-[f:FOLLOWS {year: 2023}]->(t)
+RETURN aaron,ma,mb,mc,md,me,t
+
+(g) MATCH (aaron:User {username:'Aaron'})-[:FOLLOWS]->(u:User)-[r:RATED]-> (m:Movie)
+RETURN m.title AS `MOVIES`, u.username AS `Followed user`, r.rating AS `rating`
+
+Question 2
+
+(d)
+CALL gds.beta.closeness.stream('Tutorixus')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS member, score
+WHERE score > 0
+Return count(member)
+
+(e)
+CALL gds.degree.stream('Tutorixus')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS member, score
+WHERE member:User AND score > 3
+Return member.username AS `user’s name`, score AS `degree centrality`
+ORDER BY member.username
+
+(f)
+CALL gds.betweenness.stream('Tutorixus')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS member, score
+WHERE member:Person
+RETURN member.name, score
+ORDER BY score DESC
+
+(g)
+CALL gds.betweenness.stream('Tutorixus')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS member, score
+WHERE member:Movie
+WITH member, score
+ORDER BY score DESC
+LIMIT 1
+SET member.topBetweenness = score
+RETURN member
